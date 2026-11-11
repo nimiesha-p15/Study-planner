@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudySpace — Study Planner</title>
+  <style>
+    :root { --bg:#f4f6fb; --card:#fff; --ink:#20243a; --muted:#707891; --accent:#6558d3; --line:#e8eaf2; --green:#1d9b70; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+    header { background:linear-gradient(120deg,#5145bd,#8877ed); color:white; padding:30px max(22px,calc((100% - 1050px)/2)); }
+    header h1 { margin:0 0 6px; font-size:clamp(26px,5vw,36px); }
+    header p { margin:0; opacity:.9; }
+    main { max-width:1050px; margin:26px auto; padding:0 18px 40px; }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; }
+    .stat,.panel { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 5px 18px #20243a08; }
+    .stat { padding:17px 20px; }
+    .stat strong { display:block; font-size:26px; }
+    .stat span { color:var(--muted); font-size:13px; }
+    .layout { display:grid; grid-template-columns: minmax(0,1.25fr) minmax(260px,.75fr); gap:18px; align-items:start; }
+    .panel { padding:21px; margin-bottom:18px; }
+    h2 { font-size:18px; margin:0 0 16px; }
+    form { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+    input,select,button { font:inherit; border-radius:10px; }
+    input,select { min-width:0; padding:11px 12px; border:1px solid var(--line); background:white; color:var(--ink); }
+    .wide { grid-column:1/-1; }
+    button { border:0; padding:11px 15px; background:var(--accent); color:white; font-weight:650; cursor:pointer; }
+    button:hover { filter:brightness(.95); }
+    .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:13px; }
+    .filters button { background:#efeffa; color:#5145bd; padding:8px 12px; font-size:13px; }
+    .filters button.active { background:var(--accent); color:white; }
+    .task { display:flex; align-items:center; gap:11px; padding:13px 0; border-bottom:1px solid var(--line); }
+    .task:last-child { border-bottom:0; }
+    .task input[type=checkbox] { width:18px; height:18px; accent-color:var(--green); flex:none; }
+    .task-info { min-width:0; flex:1; }
+    .task-title { font-weight:650; overflow-wrap:anywhere; }
+    .meta { color:var(--muted); font-size:12px; margin-top:4px; }
+    .done .task-title { text-decoration:line-through; color:#9298a9; }
+    .tag { display:inline-block; border-radius:20px; padding:3px 8px; background:#f0efff; color:#594dbd; font-size:11px; margin-left:5px; }
+    .delete { background:#fff0f0; color:#c14c4c; padding:7px 9px; font-size:12px; }
+    .empty { color:var(--muted); text-align:center; padding:25px 8px; }
+    .progress-track { height:10px; border-radius:20px; background:#eeeff5; overflow:hidden; }
+    .progress-fill { height:100%; width:0; background:linear-gradient(90deg,#6558d3,#31b88a); transition:width .25s; }
+    .progress-label { display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin:10px 0; }
+    .tip { background:#f5f3ff; border-radius:12px; padding:13px; color:#554ba3; font-size:13px; line-height:1.5; }
+    footer { text-align:center; color:var(--muted); font-size:12px; padding:0 15px 25px; }
+    @media(max-width:720px) { .layout { grid-template-columns:1fr; } }
+    @media(max-width:450px) { .stats { gap:8px; } .stat { padding:13px 10px; } .stat strong { font-size:21px; } form { grid-template-columns:1fr; } .wide { grid-column:auto; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📚 StudySpace</h1>
+    <p>Your simple study planner. Plan a little, learn a lot.</p>
+  </header>
+  <main>
+    <section class="stats">
+      <div class="stat"><strong id="totalCount">0</strong><span>Total tasks</span></div>
+      <div class="stat"><strong id="doneCount">0</strong><span>Completed</span></div>
+      <div class="stat"><strong id="remainingCount">0</strong><span>Remaining</span></div>
+    </section>
+    <div class="layout">
+      <section>
+        <div class="panel">
+          <h2>➕ Add a study task</h2>
+          <form id="taskForm">
+            <input id="taskName" class="wide" type="text" placeholder="What do you need to study?" maxlength="100" required>
+            <input id="subject" type="text" placeholder="Subject (e.g. Python)" maxlength="35" required>
+            <input id="dueDate" type="date" aria-label="Due date">
+            <select id="priority" aria-label="Priority">
+              <option value="Normal">Normal priority</option>
+              <option value="High">High priority</option>
+              <option value="Low">Low priority</option>
+            </select>
+            <button class="wide" type="submit">Add task</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>📝 My tasks</h2>
+          <div class="filters">
+            <button type="button" class="active" data-filter="all">All</button>
+            <button type="button" data-filter="pending">Pending</button>
+            <button type="button" data-filter="done">Completed</button>
+          </div>
+          <div id="taskList"><div class="empty">No tasks yet. Add your first study task above!</div></div>
+        </div>
+      </section>
+      <aside>
+        <div class="panel">
+          <h2>🎯 Your progress</h2>
+          <div class="progress-label"><span>Completion</span><strong id="progressText">0%</strong></div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <p class="meta" id="progressNote">Every completed task is a step forward.</p>
+        </div>
+        <div class="panel">
+          <h2>💡 Study tip</h2>
+          <div class="tip">Try studying for 25 minutes, then take a 5-minute break. Keep your phone away while you focus, and review what you learned at the end.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <footer>Your tasks are saved in this browser on this device using local storage.</footer>
+  <script>
+    const STORAGE_KEY = "studyspace_tasks_v1";
+    let tasks = [];
+    try { tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { tasks = []; }
+    let currentFilter = "all";
+
+    const $ = id => document.getElementById(id);
+    const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+
+    function render() {
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.done).length;
+      const remaining = total - completed;
+      const percent = total ? Math.round(completed / total * 100) : 0;
+      $("totalCount").textContent = total;
+      $("doneCount").textContent = completed;
+      $("remainingCount").textContent = remaining;
+      $("progressText").textContent = percent + "%";
+      $("progressFill").style.width = percent + "%";
+      $("progressNote").textContent = total ? `${completed} of ${total} tasks completed.` : "Every completed task is a step forward.";
+
+      const visible = tasks.filter(t => currentFilter === "all" ||
+        (currentFilter === "done" && t.done) || (currentFilter === "pending" && !t.done));
+      const list = $("taskList");
+      list.innerHTML = "";
+      if (!visible.length) {
+        list.innerHTML = `<div class="empty">${total ? "No tasks in this filter." : "No tasks yet. Add your first study task above!"}</div>`;
+        return;
+      }
+      visible.forEach(task => {
+        const row = document.createElement("div");
+        row.className = "task" + (task.done ? " done" : "");
+        const check = document.createElement("input");
+        check.type = "checkbox"; check.checked = task.done;
+        check.setAttribute("aria-label", "Mark task complete");
+        check.addEventListener("change", () => {
+          task.done = check.checked; save(); render();
+        });
+        const info = document.createElement("div"); info.className = "task-info";
+        const title = document.createElement("div"); title.className = "task-title";
+        title.textContent = task.name;
+        const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = task.priority;
+        title.appendChild(tag);
+        const meta = document.createElement("div"); meta.className = "meta";
+        meta.textContent = task.subject + (task.due ? " · Due " + task.due : "");
+        info.append(title, meta);
+        const del = document.createElement("button"); del.className = "delete";
+        del.type = "button"; del.textContent = "Delete";
+        del.addEventListener("click", () => {
+          tasks = tasks.filter(t => t.id !== task.id); save(); render();
+        });
+        row.append(check, info, del); list.appendChild(row);
+      });
+    }
+
+    $("taskForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const name = $("taskName").value.trim();
+      const subject = $("subject").value.trim();
+      if (!name || !subject) return;
+      tasks.unshift({
+        id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+        name, subject, due: $("dueDate").value,
+        priority: $("priority").value, done: false
+      });
+      save();
+      $("taskForm").reset();
+      render();
+    });
+
+    document.querySelectorAll("[data-filter]").forEach(button => {
+      button.addEventListener("click", () => {
+        currentFilter = button.dataset.filter;
+        document.querySelectorAll("[data-filter]").forEach(b => b.classList.toggle("active", b === button));
+        render();
+      });
+    });
+    render();
+  </script>
+</body>
+</html>
